@@ -2,6 +2,7 @@ import dbConnect from '../lib/mongodb.js';
 import Order from '../models/Order.js';
 import Customer from '../models/Customer.js';
 import Product from '../models/Product.js';
+import Counter from '../models/Counter.js';
 import { sendOrderEmail } from '../services/emailService.js';
 import { sendOrderConfirmation as sendWhatsAppConfirmation } from '../services/whatsappService.js';
 
@@ -9,10 +10,29 @@ export const createOrder = async (orderData) => {
     await dbConnect();
     const { product, quantity, total, userDetails, items, gstAmount, promoDiscount, shippingCost } = orderData;
 
-    // Generate Unique Sequential Order ID
-    const orderCount = await Order.countDocuments();
-    const nextOrderNumber = 1000 + orderCount + 1;
-    const orderId = `ORD-${nextOrderNumber}`;
+    // Generate Unique Sequential Order ID (Professional Way)
+    let counter = await Counter.findOne({ id: 'orderId' });
+    if (!counter) {
+        // If first time, find the highest existing order number
+        const lastOrder = await Order.findOne().sort({ createdAt: -1 });
+        let lastSeq = 1000;
+        if (lastOrder && lastOrder.orderId) {
+            const match = lastOrder.orderId.match(/\d+/);
+            if (match) lastSeq = parseInt(match[0]);
+        }
+        counter = await Counter.findOneAndUpdate(
+            { id: 'orderId' },
+            { $setOnInsert: { seq: lastSeq } },
+            { upsert: true, new: true }
+        );
+    }
+    
+    counter = await Counter.findOneAndUpdate(
+        { id: 'orderId' },
+        { $inc: { seq: 1 } },
+        { new: true }
+    );
+    const orderId = `ORD-${counter.seq}`;
 
     // 1. Prepare Order Data
     const orderItems = items && items.length > 0 ? items.map(item => ({

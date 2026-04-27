@@ -53,7 +53,7 @@ export const createOrder = async (orderData) => {
 
     // 3. Upsert Customer Profile
     await Customer.findOneAndUpdate(
-        { phone: userDetails.phone },
+        { $or: [{ phone: userDetails.phone }, { email: userDetails.email }] },
         { 
             $set: { 
                 name: userDetails.name, 

@@ -6,22 +6,29 @@ import Customer from '../models/Customer.js';
 export const getDashboardStats = async (period = 'Weekly') => {
     await dbConnect();
 
-    // 1. Total Counts
-    const totalOrders = await Order.countDocuments({ orderStatus: { $ne: 'Cancelled' } });
-    const totalProducts = await Product.countDocuments();
-    const totalCustomers = await Customer.countDocuments();
-    const lowStockCount = await Product.countDocuments({ stock: { $lt: 5 } });
-    
-    // Category Counts
-    const totalInverters = await Product.countDocuments({ category: { $regex: /^inverter/i } });
-    const totalBatteries = await Product.countDocuments({ category: { $regex: /^batter/i } });
-    const totalCombos = await Product.countDocuments({ category: { $regex: /^combo/i } });
-
-    // 2. Revenue Aggregation
-    const revenueStats = await Order.aggregate([
-        { $match: { orderStatus: { $ne: 'Cancelled' } } },
-        { $group: { _id: null, total: { $sum: "$totalAmount" } } }
+    const [
+        totalOrders,
+        totalProducts,
+        totalCustomers,
+        lowStockCount,
+        totalInverters,
+        totalBatteries,
+        totalCombos,
+        revenueStats
+    ] = await Promise.all([
+        Order.countDocuments({ orderStatus: { $ne: 'Cancelled' } }),
+        Product.countDocuments(),
+        Customer.countDocuments(),
+        Product.countDocuments({ stock: { $lt: 5 } }),
+        Product.countDocuments({ category: { $regex: /^inverter/i } }),
+        Product.countDocuments({ category: { $regex: /^batter/i } }),
+        Product.countDocuments({ category: { $regex: /^combo/i } }),
+        Order.aggregate([
+            { $match: { orderStatus: { $ne: 'Cancelled' } } },
+            { $group: { _id: null, total: { $sum: "$totalAmount" } } }
+        ])
     ]);
+
     const totalRevenue = revenueStats[0]?.total || 0;
 
     // 3. Periodic Stats (Current period)

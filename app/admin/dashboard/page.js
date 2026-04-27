@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function AdminDashboard() {
     const [statsData, setStatsData] = useState(null);
@@ -23,11 +24,25 @@ export default function AdminDashboard() {
             if (data.success) {
                 setStatsData(data); // Store the full data object
                 setLastUpdated(new Date());
+                // Smart Cache: Save to browser memory
+                localStorage.setItem(`dashboard_stats_${revenuePeriod.toLowerCase()}`, JSON.stringify({
+                    data,
+                    timestamp: new Date().getTime()
+                }));
             }
         } catch (error) {
             console.error("Stats Fetch Error:", error);
         }
     };
+
+    // Load from memory instantly
+    useEffect(() => {
+        const cached = localStorage.getItem(`dashboard_stats_${revenuePeriod.toLowerCase()}`);
+        if (cached) {
+            const { data } = JSON.parse(cached);
+            setStatsData(data);
+        }
+    }, [revenuePeriod]);
 
     const handleExport = () => {
         if (!statsData) return;
@@ -238,15 +253,19 @@ export default function AdminDashboard() {
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center overflow-hidden shrink-0">
                                                             {order.items?.[0]?.image ? (
-                                                                <img 
-                                                                    src={order.items[0].image} 
-                                                                    alt="" 
-                                                                    className="w-10 h-10 object-contain"
-                                                                    onError={(e) => {
-                                                                        e.target.src = "https://cdn-icons-png.flaticon.com/512/1170/1170577.png";
-                                                                        e.target.className = "w-6 h-6 opacity-20 grayscale";
-                                                                    }}
-                                                                />
+                                                                <div className="relative w-full h-full">
+                                                                    <Image
+                                                                        src={order.items[0].image}
+                                                                        alt={order.items[0].name}
+                                                                        fill
+                                                                        priority={idx < 4}
+                                                                        className="object-contain group-hover:scale-110 transition-transform duration-700"
+                                                                        onError={(e) => {
+                                                                            e.target.src = "https://cdn-icons-png.flaticon.com/512/1170/1170577.png";
+                                                                            e.target.className = "w-6 h-6 opacity-20 grayscale";
+                                                                        }}
+                                                                    />
+                                                                </div>
                                                             ) : (
                                                                 <span className="text-brand-navy font-black text-xs">{order.customer.name[0]}</span>
                                                             )}

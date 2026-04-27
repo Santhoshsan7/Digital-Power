@@ -1,4 +1,3 @@
-"use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -85,6 +84,7 @@ export default function FeaturedProducts() {
                                         src={product.image}
                                         alt={product.name}
                                         fill
+                                        priority={index < 4} // Load top 4 products instantly
                                         className="object-contain group-hover:scale-110 transition-transform duration-700"
                                     />
                                 </div>

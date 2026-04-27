@@ -10,29 +10,24 @@ export const createOrder = async (orderData) => {
     await dbConnect();
     const { product, quantity, total, userDetails, items, gstAmount, promoDiscount, shippingCost } = orderData;
 
-    // Generate Unique Sequential Order ID (Professional Way)
-    let counter = await Counter.findOne({ id: 'orderId' });
-    if (!counter) {
-        // If first time, find the highest existing order number
-        const lastOrder = await Order.findOne().sort({ createdAt: -1 });
-        let lastSeq = 1000;
-        if (lastOrder && lastOrder.orderId) {
-            const match = lastOrder.orderId.match(/\d+/);
-            if (match) lastSeq = parseInt(match[0]);
-        }
-        counter = await Counter.findOneAndUpdate(
+    // Generate Unique Sequential Order ID (Collision-Proof)
+    let orderId;
+    let isUnique = false;
+    
+    while (!isUnique) {
+        let counter = await Counter.findOneAndUpdate(
             { id: 'orderId' },
-            { $setOnInsert: { seq: lastSeq } },
+            { $inc: { seq: 1 } },
             { upsert: true, new: true }
         );
+        orderId = `ORD-${counter.seq}`;
+        
+        // Final sanity check: make sure this ID doesn't exist in the Orders collection
+        const existingOrder = await Order.findOne({ orderId });
+        if (!existingOrder) {
+            isUnique = true;
+        }
     }
-    
-    counter = await Counter.findOneAndUpdate(
-        { id: 'orderId' },
-        { $inc: { seq: 1 } },
-        { new: true }
-    );
-    const orderId = `ORD-${counter.seq}`;
 
     // 1. Prepare Order Data
     const orderItems = items && items.length > 0 ? items.map(item => ({
